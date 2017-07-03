@@ -25,17 +25,37 @@ def get_device_info_list(authority):
         device_info.append({"id": id_str, "room": room_str, "name": name_str, "item": item_str, "get_ch": get_ch_str, "set_ch": set_ch_str})
     return device_info
 
+def get_scenes_info_list(authority):
+    scenes = hc2gw.get_scenes(authority)
+    rooms = hc2gw.get_rooms(authority)
+    scenes_info=[]
+    for scene in scenes:
+        id_str = str(scene["id"])
+        room = [room for room in rooms if room["id"] == scene["roomID"]][0]
+        room_str = room["name"].encode('ascii', errors='ignore').replace(" ", "")
+        name_str = scene["name"].encode('ascii', errors='ignore').replace(" ", "")
+        name_str = re.sub("[\W]+", "", name_str)
+        item_str = "Hc2_" + room_str + "_" + name_str
+        trigger_str = "exec:command:hc2gw_trigger_scene_" + id_str
+        scenes_info.append({"id": id_str, "room": room_str, "name": name_str, "item": item_str, "trigger_ch": trigger_str})
+    return scenes_info
+
 def make_items(authority):
     for dev in get_device_info_list(authority):
         print("String " + dev["item"])
         print("String " + dev["item"] + "_get { channel=\"" + dev["get_ch"] + ":output\" }")
         print("String " + dev["item"] + "_set { channel=\"" + dev["set_ch"] + ":input\" }")
         print
+    for scene in get_scenes_info_list(authority):
+        print("String " + scene["item"] + "_trigger { channel=\"" + scene["trigger_ch"] + ":run\" }")
+        print
 
 def make_things(authority):
     for dev in get_device_info_list(authority):
         print("Thing " + dev["get_ch"] + " [command=\"" + hc2gw_cmd + " " + get_authority_str(authority) + " get_value " + dev["id"] + "\", interval=10]")
         print("Thing " + dev["set_ch"] + " [command=\"" + hc2gw_cmd + " " + get_authority_str(authority) + " set_value " + dev["id"] + " %2$s\", interval=0, autorun=true]")
+    for scene in get_scenes_info_list(authority):
+	print("Thing " + scene["trigger_ch"] + " [command=\"" + hc2gw_cmd + " " + get_authority_str(authority) + " trigger_scene " + scene["id"] + "\", interval=0, autorun=true]")
 
 def make_rules(authority):
     for dev in get_device_info_list(authority):

@@ -18,11 +18,16 @@ def send_hc2_api(verb, authority, path, post_data=None):
         r = requests.post(url, data = post_data, auth=(authority["user"], authority["password"]))
     
     logging.debug(r.text)
-    return r.json()
+    return None if r.text == "" else r.json()
     
 def set_value(authority, id, value):
     path = "/devices/" + str(id) + "/action/setValue"
     payload = " { \"args\" : [" + str(value) + "] }"
+    send_hc2_api("POST", authority, path, payload)
+
+def trigger_scene(authority, id):
+    path = "/scenes/" + str(id) + "/action/start"
+    payload = " { \"args\" : [] }"
     send_hc2_api("POST", authority, path, payload)
 
 def get_value(authority, id):
@@ -44,8 +49,17 @@ def get_devices(authority):
     real_devices = [device for device in response if device["roomID"] != 0]
     return real_devices
 
+def get_scenes(authority):
+    response = send_hc2_api("GET", authority, "/scenes")
+    logging.debug(response)
+
+    real_scenes= [scene for scene in response if scene["name"] is not "New Scene"]
+    return real_scenes
+
+
 def get_rooms(authority):
     response = send_hc2_api("GET", authority, "/rooms")
+    response.append({u'name': u'Unassigned', u'id': 0})
     logging.debug(response)
 
     return response
@@ -58,6 +72,12 @@ def print_devices(authority):
               " = " + get_value(authority, d["id"])
               )
 
+def print_scenes(authority):
+    for s in get_scenes(authority):
+        print("[" + str(s["id"]) + "]" +
+              " @" + str(s["roomID"]) +
+              " \"" + s["name"] + "\"" 
+              )
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description = "Control Fibaro HC2.")
@@ -75,6 +95,10 @@ if __name__ == "__main__":
     parser_get_value.add_argument("id", type = int)
     
     parser_get_devices = subparsers.add_parser("print_devices")
+
+    parser_get_scenes = subparsers.add_parser("print_scenes")
+    parser_trigger_scene = subparsers.add_parser("trigger_scene")
+    parser_trigger_scene.add_argument("id", type = int)
     
     args = parser.parse_args()
     
@@ -87,3 +111,7 @@ if __name__ == "__main__":
         print(str(value))
     elif args.command == "print_devices":
         print_devices(authority)
+    elif args.command == "print_scenes":
+        print_scenes(authority)
+    elif args.command == "trigger_scene":
+        trigger_scene(authority, args.id)
